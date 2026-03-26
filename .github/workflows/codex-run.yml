@@ -39,10 +39,10 @@ jobs:
             Read /project-config.md first.
 
             Title:
-            $ISSUE_TITLE
+            ${{ github.event.issue.title }}
 
             Description:
-            $ISSUE_BODY
+            ${{ github.event.issue.body }}
 
             Instructions:
             - Implement the task
@@ -51,6 +51,8 @@ jobs:
             - Keep changes minimal
             - Do not break existing code
             - Summarize what you changed
+            - Implement the issue in project code only
+            - Do not modify files under .github/workflows
           output-file: codex-output.md
           sandbox: workspace-write
           safety-strategy: drop-sudo
@@ -66,7 +68,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add .
-          git restore --staged codex-output.md || true
+          git restore --staged .github/workflows/codex-run.yml || true
+          git checkout -- .github/workflows/codex-run.yml || true
           rm -f codex-output.md
 
           git diff --cached --quiet && echo "No changes" && exit 0
