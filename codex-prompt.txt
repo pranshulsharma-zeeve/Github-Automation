@@ -1,0 +1,31 @@
+You are working on GitHub issue #9.
+
+IMPORTANT:
+- DO NOT modify any file inside .github/
+- DO NOT modify workflows
+- If workflow changes are needed, mention them only
+
+Project config:
+Read project-config.md and follow it strictly.
+
+Title:
+Build login page UI shell
+
+Description:
+## Description
+Create the login screen with application title/logo area, username/email input, password input, login button, and a form-level error area.
+
+## Acceptance Criteria
+- [ ] Login screen shows title/logo, username/email, password, and Login button
+- [ ] Password field masks entered characters
+- [ ] Error message area is present for authentication failures
+- [ ] Layout is mobile-responsive on modern browsers
+
+Instructions:
+- Implement only application code
+- If project is empty, initialize structure first
+- Keep changes minimal
+- Add tests if possible
+- Do not break existing code
+- Follow project-config.md strictly
+- Summarize what you changed
