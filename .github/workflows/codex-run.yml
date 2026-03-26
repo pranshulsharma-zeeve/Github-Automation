@@ -35,6 +35,8 @@ jobs:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt: |
             You are working on a GitHub issue.
+            Project config:
+            Read /project-config.md first.
 
             Title:
             $ISSUE_TITLE
