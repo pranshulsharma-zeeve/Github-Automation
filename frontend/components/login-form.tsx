@@ -7,6 +7,28 @@ export function LoginForm() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const identifier = String(formData.get("identifier") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+
+    if (!identifier) {
+      setErrorMessage("Username or email is required");
+      return;
+    }
+
+    if (!password) {
+      setErrorMessage("Password is required");
+      return;
+    }
+
+    if (identifier.includes("@")) {
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+      if (!isValidEmail) {
+        setErrorMessage("Please enter a valid email address");
+        return;
+      }
+    }
+
     setErrorMessage("Invalid username/email or password");
   };
 
