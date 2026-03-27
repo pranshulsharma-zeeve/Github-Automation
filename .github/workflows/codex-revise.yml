@@ -1,0 +1,135 @@
+name: Codex Revise from Comment
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  revise:
+    if: startsWith(github.event.comment.body, '/codex revise')
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+    steps:
+      - name: Check comment target
+        run: |
+          if [ -z "${{ github.event.issue.pull_request.url }}" ]; then
+            echo "This comment is not on a pull request."
+            exit 1
+          fi
+
+      - name: Checkout repo
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check OpenAI API key
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY is missing or empty"
+            exit 1
+          fi
+
+      - name: Get PR branch
+        id: pr_data
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.issue.number }}
+          BRANCH=$(gh pr view "$PR_NUMBER" --json headRefName -q .headRefName)
+          echo "branch_name=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR branch
+        run: |
+          git fetch origin "${{ steps.pr_data.outputs.branch_name }}"
+          git checkout "${{ steps.pr_data.outputs.branch_name }}"
+
+      - name: Check project config
+        run: |
+          if [ ! -f project-config.md ]; then
+            echo "project-config.md missing"
+            exit 1
+          fi
+
+      - name: Build revise prompt
+        run: |
+          cat > codex-revise-prompt.txt <<EOF
+          You are revising an existing pull request branch.
+
+          IMPORTANT:
+          - DO NOT modify any file inside .github/
+          - DO NOT modify workflows
+          - DO NOT create CI/CD workflows
+          - If workflow changes are needed, mention them only in the summary
+
+          Project config:
+          Read project-config.md and follow it strictly.
+
+          Pull request number:
+          #${{ github.event.issue.number }}
+
+          Original title:
+          ${{ github.event.issue.title }}
+
+          Reviewer/developer request:
+          ${{ github.event.comment.body }}
+
+          Instructions:
+          - Apply only the requested revision
+          - Keep changes minimal and safe
+          - Update tests if needed
+          - Do not refactor unrelated code
+          - Summarize what changed
+          EOF
+
+      - name: Run Codex revision
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: codex-revise-prompt.txt
+          output-file: codex-output.md
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+          codex-args: '["--full-auto"]'
+
+      - name: Commit revision
+        id: commit_revision
+        run: |
+          git add .
+
+          # Never allow workflow changes
+          git restore --staged .github/workflows/* || true
+          git checkout -- .github/workflows/* || true
+
+          # Remove helper files
+          git restore --staged codex-output.md codex-revise-prompt.txt || true
+          rm -f codex-output.md codex-revise-prompt.txt
+
+          if git diff --cached --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No revision changes to commit"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Codex revise: PR #${{ github.event.issue.number }}"
+          git push origin "${{ steps.pr_data.outputs.branch_name }}"
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on PR
+        if: steps.commit_revision.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --body "🔁 Codex revision applied from comment: `${{ github.event.comment.body }}`"
