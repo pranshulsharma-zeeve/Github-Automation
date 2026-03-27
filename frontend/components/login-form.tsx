@@ -4,10 +4,48 @@ import { FormEvent, useState } from "react";
 
 export function LoginForm() {
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setErrorMessage("Invalid username/email or password");
+
+    const formData = new FormData(event.currentTarget);
+    const identifier = formData.get("identifier");
+    const password = formData.get("password");
+    const identifierValue = typeof identifier === "string" ? identifier : "";
+    const passwordValue = typeof password === "string" ? password : "";
+
+    setIsSubmitting(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      if (!identifierValue || !passwordValue) {
+        setErrorMessage("Invalid username/email or password");
+        return;
+      }
+
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ identifier: identifierValue, password: passwordValue }),
+      });
+
+      if (!response.ok) {
+        setErrorMessage("Invalid username/email or password");
+        return;
+      }
+
+      setSuccessMessage("Login successful");
+    } catch {
+      setErrorMessage("Invalid username/email or password");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -65,11 +103,18 @@ export function LoginForm() {
           {errorMessage}
         </div>
 
+        {successMessage ? (
+          <p aria-live="polite" className="text-sm text-emerald-700" role="status">
+            {successMessage}
+          </p>
+        ) : null}
+
         <button
           className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-base font-medium text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:text-sm"
+          disabled={isSubmitting}
           type="submit"
         >
-          Login
+          {isSubmitting ? "Logging in..." : "Login"}
         </button>
       </form>
     </section>
